@@ -111,6 +111,7 @@ class ESP8266
     */
 
     ESP8266(Stream* uart = &Serial);
+    ESP8266(ESPC3SpiClass *uart);
 
     Stream* getUart()
     {
@@ -770,6 +771,7 @@ class ESP8266
     */
 
     Stream *m_puart; /* The UART to communicate with ESP_AT */
+    ESPC3SpiClass *m_puarts;
     onData m_onData;
     void*  m_onDataPtr;
 };

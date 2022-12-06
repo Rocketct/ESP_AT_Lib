@@ -43,6 +43,14 @@
 #define __ESP_AT_LIB_IMPL_H__
 
 #include <avr/pgmspace.h>
+//#include "ESPC3SpiClass.h"
+
+ESP8266::ESP8266(ESPC3SpiClass *uart)
+  : m_puarts(uart)
+{
+  m_onData = NULL;
+  m_onDataPtr = NULL;
+}
 
 ESP8266::ESP8266(Stream *uart)
   : m_puart(uart)
@@ -50,7 +58,6 @@ ESP8266::ESP8266(Stream *uart)
   m_onData = NULL;
   m_onDataPtr = NULL;
 }
-
 bool ESP8266::kick(void)
 {
   return eAT();
@@ -560,9 +567,9 @@ void ESP8266::rx_empty(void)
 
   while (millis() - start < 10)
   {
-    if (m_puart->available())
+    if (m_puarts->available())
     {
-      a = m_puart->read();
+      a = m_puarts->read();
 
       if (a == '\0')
         continue;
@@ -587,10 +594,9 @@ String ESP8266::recvString(String target, uint32_t timeout)
 
   while (millis() - start < timeout)
   {
-    while (m_puart->available() > 0)
+    while (m_puarts->available() > 0)
     {
-      a = m_puart->read();
-
+      a = m_puarts->read();
       if (a == '\0')
         continue;
 
@@ -618,9 +624,9 @@ String ESP8266::recvString(String target1, String target2, uint32_t timeout)
 
   while (millis() - start < timeout)
   {
-    while (m_puart->available() > 0)
+    while (m_puarts->available() > 0)
     {
-      a = m_puart->read();
+      a = m_puarts->read();
 
       if (a == '\0')
         continue;
@@ -653,9 +659,9 @@ String ESP8266::recvString(String target1, String target2, String target3, uint3
 
   while (millis() - start < timeout)
   {
-    while (m_puart->available() > 0)
+    while (m_puarts->available() > 0)
     {
-      a = m_puart->read();
+      a = m_puarts->read();
 
       if (a == '\0')
         continue;
@@ -779,11 +785,10 @@ bool ESP8266::eATGMR(String &version)
 {
   rx_empty();
   delay(3000);
-  m_puart->println(F("AT+GMR"));
-
+  m_puarts->println(F("AT+GMR"));
   AT_LIB_LOGDEBUG(F("AT+GMR"));
 
-  return recvFindAndFilter("OK", "\r\r\n", "\r\n\r\nOK", version, 10000);
+  return recvFindAndFilter("OK", "AT+GMR", "\n\r\nOK", version, 10000);
 }
 
 // Enters Deep-sleep Mode in time
