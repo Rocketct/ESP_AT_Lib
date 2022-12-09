@@ -1,7 +1,6 @@
 #include "Arduino.h"
 #include "SPI.h"
 #include "RingBuffer.h"
-//#include "String.h"
 #include "Printable.h"
 
 #ifndef _ESP_ARDUINO_CLASS_H
@@ -40,7 +39,8 @@ public:
   size_t println(const String &s) override;
   size_t println(const char[]) override;
   size_t println(char);
-
+  size_t print(const __FlashStringHelper *);
+  size_t println(const __FlashStringHelper *);
 
 private:
   void sendRxSpiRequest(uint8_t *rxBuffer, uint8_t raedableByte);

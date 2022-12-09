@@ -120,6 +120,31 @@ size_t ESPC3SpiClass::println(char data) {
   Serial.println("println(char data)");
 }
 
+size_t ESPC3SpiClass::print(const __FlashStringHelper * ifsh){
+  const char * data = reinterpret_cast<const char *>(ifsh);
+  uint8_t txbuffer[4096];
+  uint16_t size = (uint16_t) strlen(data);
+  for(int i =0; i<size;i++){
+    txbuffer[i] = data[i];
+  }
+  txbuffer[size++] = 0x0D;
+  txbuffer[size++] = 0x0A;
+  writeToSlave(txbuffer, size);
+}
+
+size_t ESPC3SpiClass::println(const __FlashStringHelper * ifsh){
+  //Serial.println("cici");
+  const char * data = reinterpret_cast<const char *>(ifsh);
+  uint8_t txbuffer[4096];
+  uint16_t size = (uint16_t) strlen(data);
+  for(int i =0; i<size;i++){
+    txbuffer[i] = data[i];
+  }
+  txbuffer[size++] = 0x0D;
+  txbuffer[size++] = 0x0A;
+  writeToSlave(txbuffer, size);
+}
+
 size_t ESPC3SpiClass::println(const String &s){
   char buffer[s.length() + 1];
   s.toCharArray(buffer, s.length() + 1);
