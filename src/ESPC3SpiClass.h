@@ -15,14 +15,11 @@
 #endif
 
 
-static bool _readflag = false;
-void isrRead();
-
 class ESPC3SpiClass : public Stream {
 public:
   ESPC3SpiClass();
   ~ESPC3SpiClass();
-  void begin();
+  void begin(uint8_t baud = 9600);
   uint8_t readFromSlave(uint8_t * rxBuffer);
   uint8_t readFromSlave();
   void writeToSlave(uint8_t *data, uint16_t size = 0x01U);
@@ -36,16 +33,16 @@ public:
   size_t print(const char[]);
   size_t print(const String &s);
   size_t print(char);
-  size_t println(const String &s) override;
-  size_t println(const char[]) override;
+  size_t println(const String &s);
+  size_t println(const char[]);
   size_t println(char);
   size_t print(const __FlashStringHelper *);
-  size_t println(const __FlashStringHelper *);
+  size_t println(const __FlashStringHelper *) ;
 
 private:
-  void sendRxSpiRequest(uint8_t *rxBuffer, uint8_t raedableByte);
+  void sendRxSpiRequest(uint8_t *rxBuffer, uint16_t raedableByte);
   void txSpiRequest(uint8_t * data, uint16_t size);
-  uint8_t queryRxStatus();
+  uint16_t queryRxStatus();
   void queryTxStatus();
   void readSpi(uint8_t *data, int size, uint8_t *readBuffer);
   uint32_t readSpi();
@@ -60,6 +57,8 @@ private:
   SPISettings _spiSettings = SPISettings(4000000, MSBFIRST, SPI_MODE0);
   //uint8_t * _rxBuffer;
   RingBufferN<4096> _rxBuffer;
+  char _txBuffer[4096];
+  uint16_t _head = 0;
   int _cs = 31;
   byte _hs = 28;
 

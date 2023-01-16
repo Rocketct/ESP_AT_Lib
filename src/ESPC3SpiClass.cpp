@@ -1,5 +1,6 @@
 #include "ESPC3SpiClass.h"
 
+volatile bool _readflag = false;
 
 ESPC3SpiClass::ESPC3SpiClass() {
 
@@ -9,7 +10,11 @@ ESPC3SpiClass::~ESPC3SpiClass() {
 
 }
 
-void ESPC3SpiClass::begin() {
+void isrRead() {
+  _readflag = true;
+}
+
+void ESPC3SpiClass::begin(uint8_t baud) {
   pinMode(NINA_GPIO0, OUTPUT);
   pinMode(NINA_RESETN, OUTPUT);
 
@@ -23,7 +28,7 @@ void ESPC3SpiClass::begin() {
   pinMode(_hs, INPUT);
   digitalWrite(_cs, HIGH);
   _spi.begin();
-  attachInterrupt(digitalPinToInterrupt(_hs), isrRead, RISING);
+  attachInterrupt(_hs, isrRead, RISING);
 }
 
 uint8_t ESPC3SpiClass::readFromSlave(uint8_t * rxBuffer) {
@@ -33,7 +38,7 @@ uint8_t ESPC3SpiClass::readFromSlave(uint8_t * rxBuffer) {
   _readflag = false;
 
 
-  uint8_t raedableByte = queryRxStatus();
+  uint16_t raedableByte = queryRxStatus();
   uint8_t bufferc[4096];
   sendRxSpiRequest(rxBuffer, raedableByte);
   for (int i = 0; i < raedableByte; i++) {
@@ -51,15 +56,18 @@ uint8_t ESPC3SpiClass::readFromSlave() {
   if (!_readflag) {
     return 0;
   }
+
   _readflag = false;
 
-  uint8_t raedableByte = queryRxStatus();
+  uint16_t raedableByte = queryRxStatus();
   uint8_t bufferc[4096];
   sendRxSpiRequest(rxBuffer, raedableByte);
   for (int i = 0; i < raedableByte; i++) {
     rxBuffer[i] = rxBuffer[3 + i];
     _rxBuffer.store_char(char(rxBuffer[i]));
+      //Serial.print((char)rxBuffer[i]);
   }
+  //Serial.println();
   rxDone();
 
   return raedableByte;
@@ -69,7 +77,6 @@ void ESPC3SpiClass::writeToSlave(uint8_t *data, uint16_t size) {
   notifyWrite();
   delay(10);
   if (!_readflag) {
-    //Serial.println(digitalRead(hs));
     return;
   }
   _readflag = false;
@@ -81,7 +88,16 @@ void ESPC3SpiClass::writeToSlave(uint8_t *data, uint16_t size) {
 }
 
 size_t ESPC3SpiClass::write(uint8_t data){
-  writeToSlave(&data);  
+  char tmp = (char) data;
+  _txBuffer[_head] = tmp;
+  _head++;
+  Serial.print((char)data);
+  if(_head >= 2 && _txBuffer[_head-2] == '\r' && _txBuffer[_head-1] == '\n' ) {
+    writeToSlave((uint8_t*)_txBuffer, _head);
+    memset(_txBuffer, 0, 255);
+    _head = 0;
+    Serial.println();
+  }
 }
 
 size_t ESPC3SpiClass::write(uint8_t * data, size_t size){
@@ -90,14 +106,24 @@ size_t ESPC3SpiClass::write(uint8_t * data, size_t size){
 }
 
 int ESPC3SpiClass::available(void){
-  if(!_rxBuffer.available()){
-    readFromSlave();
-  }
-  return _rxBuffer.available();
+  //Serial.println("m_puart->available()");
+   if(!(_rxBuffer.available())){
+     readFromSlave();
+   } 
+    //Serial.println(_rxBuffer.available());
+  //delay(10);
+  return _readflag || _rxBuffer.available();//_rxBuffer.available();
 }
 
 int ESPC3SpiClass::read(void) {
+  //if(!_rxBuffer.available()){
+    // readFromSlave();
+    // if(!_rxBuffer.available()) {
+    //   return NULL;
+    // }
+  //}
   return _rxBuffer.read_char();
+
 }
 
 int ESPC3SpiClass::peek(void) {
@@ -113,11 +139,11 @@ size_t ESPC3SpiClass::print(const char data[]) {
 }
 
 size_t ESPC3SpiClass::print(char data) {
-  Serial.println("print(char data)");
+//  Serial.println("print(char data)");
 }
 
 size_t ESPC3SpiClass::println(char data) {
-  Serial.println("println(char data)");
+ // Serial.println("println(char data)");
 }
 
 size_t ESPC3SpiClass::print(const __FlashStringHelper * ifsh){
@@ -133,7 +159,6 @@ size_t ESPC3SpiClass::print(const __FlashStringHelper * ifsh){
 }
 
 size_t ESPC3SpiClass::println(const __FlashStringHelper * ifsh){
-  //Serial.println("cici");
   const char * data = reinterpret_cast<const char *>(ifsh);
   uint8_t txbuffer[4096];
   uint16_t size = (uint16_t) strlen(data);
@@ -179,7 +204,7 @@ size_t ESPC3SpiClass::write(const char *str){
   writeToSlave((uint8_t*)str, (uint16_t)sizeof(str));
 }
 
-void ESPC3SpiClass::sendRxSpiRequest(uint8_t *rxBuffer, uint8_t raedableByte) {
+void ESPC3SpiClass::sendRxSpiRequest(uint8_t *rxBuffer, uint16_t raedableByte) {
   // read data
   uint8_t bufferc[4096];
   bufferc[0] = 0x04;
@@ -200,13 +225,17 @@ void ESPC3SpiClass::txSpiRequest(uint8_t * data, uint16_t size) {
   bufferc[2] = 0x00;
   for (int i = 0; i < (size) ; i++) {
     bufferc[i + 3] = (uint8_t) data[i];
+   // Serial.print((char)data[i]);
   }
+  Serial.print("size ");
+  Serial.print(size);
+  Serial.println();
   writeSpi((void *)bufferc, size + 3);
 }
 
-uint8_t ESPC3SpiClass::queryRxStatus() {
+uint16_t ESPC3SpiClass::queryRxStatus() {
   uint8_t buffers[7];
-  uint8_t raedableByte = 0x00;
+  uint16_t raedableByte = 0x00;
   buffers[0] = 0x02;
   buffers[1] = 0x04;
   buffers[2] = 0x00;
@@ -215,10 +244,19 @@ uint8_t ESPC3SpiClass::queryRxStatus() {
   buffers[5] = 0xFF;
   buffers[6] = 0xFF;
 
-  uint8_t readBuffer[4096];
+  uint8_t readBuffer[7];
   readSpi(buffers, sizeof(buffers), readBuffer);
-
-  raedableByte = readBuffer[5];
+  for(int i = 0; i<sizeof(readBuffer); i++){
+    Serial.print(readBuffer[i],HEX);
+    Serial.print(" ");
+  }
+  Serial.println();
+  raedableByte |= readBuffer[6];
+  raedableByte = raedableByte << 8;
+  raedableByte |= readBuffer[5];
+  Serial.print("size from rx response: ");
+  Serial.println(raedableByte);
+   
   return raedableByte;
 }
 
@@ -315,9 +353,4 @@ void ESPC3SpiClass::notifyWrite() {
   bufferw[5] = 0x04;
   bufferw[6] = 0;
   writeSpi((void *)bufferw, sizeof(bufferw));
-}
-
-
-void isrRead() {
-  _readflag = true;
 }

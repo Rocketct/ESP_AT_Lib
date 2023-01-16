@@ -43,14 +43,7 @@
 #define __ESP_AT_LIB_IMPL_H__
 
 #include <avr/pgmspace.h>
-//#include "ESPC3SpiClass.h"
 
-ESP8266::ESP8266(ESPC3SpiClass *uart)
-  : m_puarts(uart)
-{
-  m_onData = NULL;
-  m_onDataPtr = NULL;
-}
 
 ESP8266::ESP8266(Stream *uart)
   : m_puart(uart)
@@ -567,9 +560,9 @@ void ESP8266::rx_empty(void)
 
   while (millis() - start < 10)
   {
-    if (m_puarts->available())
+    if (m_puart->available())
     {
-      a = m_puarts->read();
+      a = m_puart->read();
 
       if (a == '\0')
         continue;
@@ -594,12 +587,12 @@ String ESP8266::recvString(String target, uint32_t timeout)
 
   while (millis() - start < timeout)
   {
-    while (m_puarts->available() > 0)
+    while (m_puart->available() > 0)
     {
-      a = m_puarts->read();
+      a = m_puart->read();
       if (a == '\0')
         continue;
-
+      
       data += a;
 
       if (data.indexOf(target) != -1)
@@ -624,9 +617,9 @@ String ESP8266::recvString(String target1, String target2, uint32_t timeout)
 
   while (millis() - start < timeout)
   {
-    while (m_puarts->available() > 0)
+    while (m_puart->available() > 0)
     {
-      a = m_puarts->read();
+      a = m_puart->read();
 
       if (a == '\0')
         continue;
@@ -659,9 +652,9 @@ String ESP8266::recvString(String target1, String target2, String target3, uint3
 
   while (millis() - start < timeout)
   {
-    while (m_puarts->available() > 0)
+    while (m_puart->available() > 0)
     {
-      a = m_puarts->read();
+      a = m_puart->read();
 
       if (a == '\0')
         continue;
@@ -785,10 +778,11 @@ bool ESP8266::eATGMR(String &version)
 {
   rx_empty();
   delay(3000);
-  m_puarts->println(F("AT+GMR"));
+  m_puart->println(F("AT+GMR"));
+
   AT_LIB_LOGDEBUG(F("AT+GMR"));
 
-  return recvFindAndFilter("OK", "AT+GMR", "\n\r\nOK", version, 10000);
+  return recvFindAndFilter("OK", "\r\r\n", "\r\n\r\nOK", version, 10000);
 }
 
 // Enters Deep-sleep Mode in time
@@ -1691,7 +1685,7 @@ bool ESP8266::sATCIPSENDSingle(const uint8_t *buffer, uint32_t len)
 
   AT_LIB_LOGDEBUG(F("AT+CIPSEND="));
 
-  m_puart->println(len);
+  m_puart->println(len+2);
 
   if (recvFind(">", 5000))
   {
@@ -1701,7 +1695,7 @@ bool ESP8266::sATCIPSENDSingle(const uint8_t *buffer, uint32_t len)
     {
       m_puart->write(buffer[i]);
     }
-
+    m_puart->println();
     return recvFind("SEND OK", 10000);
   }
 
@@ -1729,7 +1723,7 @@ bool ESP8266::sATCIPSENDMultiple(uint8_t mux_id, const uint8_t *buffer, uint32_t
     {
       m_puart->write(buffer[i]);
     }
-
+    m_puart->println();
     return recvFind("SEND OK", 10000);
   }
 
@@ -1755,7 +1749,7 @@ bool ESP8266::sATCIPSENDSingleFromFlash(const uint8_t *buffer, uint32_t len)
     {
       m_puart->write((char) pgm_read_byte(&buffer[i]));
     }
-
+    m_puart->println();
     return recvFind("SEND OK", 10000);
   }
   return false;
@@ -1782,7 +1776,7 @@ bool ESP8266::sATCIPSENDMultipleFromFlash(uint8_t mux_id, const uint8_t *buffer,
     {
       m_puart->write((char) pgm_read_byte(&buffer[i]));
     }
-
+    m_puart->println();
     return recvFind("SEND OK", 10000);
   }
 
@@ -2095,7 +2089,9 @@ uint32_t ESP8266::recvPkg(uint8_t *buffer, uint32_t buffer_size, uint32_t *data_
         { 
           /* +IPD,len:data */
           len = data.substring(index_PIPDcomma + 5, index_colon).toInt();
-          
+          // Serial.println(data);
+          // Serial.println();
+          // Serial.println();
           if (len <= 0) 
           {
             return 0;
@@ -2121,24 +2117,28 @@ uint32_t ESP8266::recvPkg(uint8_t *buffer, uint32_t buffer_size, uint32_t *data_
         a = m_puart->read();
         buffer[i++] = a;
       }
-      
-      if (i == ret) 
+      Serial.print("readed: ");    
+      Serial.println(i);
+      Serial.println(); Serial.println();
+      if (i == ret )
       {
-        rx_empty();
+        //rx_empty();
         
-        if (data_len) 
-        {
-          *data_len = len;
-        }
+        // if (data_len) 
+        // {
+        //   *data_len = len;
+        // }
         
-        if (index_comma != -1 && coming_mux_id) 
-        {
-          *coming_mux_id = id;
-        }
+        // if (index_comma != -1 && coming_mux_id) 
+        // {
+        //   *coming_mux_id = id;
+        // }
         
         return ret;
       }
     }
+    // if(i > 0)
+    //   return ret;
   }
   return 0;
 }
